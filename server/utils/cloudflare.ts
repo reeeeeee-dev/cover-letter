@@ -4,7 +4,7 @@
  */
 
 import type { H3Event } from 'h3'
-import type { CloudflareEnv, AssetsBinding } from '~/server/types/cloudflare'
+import type { CloudflareEnv, AssetsBinding, R2Binding } from '~/server/types/cloudflare'
 
 /**
  * Get the Cloudflare environment from an event
@@ -68,6 +68,76 @@ export function getAssetsBinding(
     return env.ASSETS
   }
 
+  return null
+}
+
+/**
+ * Get the R2 bucket binding from the Cloudflare Workers environment
+ * R2 buckets are configured via r2_buckets in wrangler.toml
+ * In Nuxt 4 with Cloudflare Workers, bindings are accessed via event.context.cloudflare.env
+ */
+export function getR2Binding(
+  event: H3Event | { context?: { cloudflare?: { env?: CloudflareEnv } }; cloudflare?: { env?: CloudflareEnv } },
+  bindingName: string = 'PDF_CACHE'
+): R2Binding | null {
+  // Try multiple ways to access the environment
+  let env: CloudflareEnv | null = null
+
+  // Method 1: Via event.context.cloudflare.env (Nuxt/Nitro standard)
+  if (event?.context?.cloudflare?.env) {
+    env = event.context.cloudflare.env
+  }
+  // Method 2: Direct cloudflare property
+  else if ((event as any)?.cloudflare?.env) {
+    env = (event as any).cloudflare.env
+  }
+  // Method 3: Direct access (if env is directly on context)
+  else if ((event as any)?.context?.env) {
+    env = (event as any).context.env
+  }
+  // Method 4: Use getCloudflareEnv helper as fallback
+  else {
+    env = getCloudflareEnv(event)
+  }
+
+  if (!env) {
+    console.warn('Cloudflare environment not found when looking for R2 binding')
+    return null
+  }
+  
+  // Debug: Log available keys in env (but be careful not to log secrets)
+  const envKeys = Object.keys(env).filter(
+    key => !key.toLowerCase().includes('key') && 
+           !key.toLowerCase().includes('secret') && 
+           !key.toLowerCase().includes('token') &&
+           !key.toLowerCase().includes('password')
+  )
+  console.log(`Available environment keys: ${envKeys.join(', ')}`)
+  
+  // Try the specified binding name first
+  if (bindingName in env && env[bindingName]) {
+    const binding = env[bindingName]
+    // Verify it has R2-like methods
+    if (binding && typeof binding === 'object' && 'get' in binding && 'put' in binding) {
+      console.log(`Found R2 binding: ${bindingName}`)
+      return binding as R2Binding
+    }
+  }
+  
+  // Try common R2 binding names
+  if ('PDF_CACHE' in env && env.PDF_CACHE) {
+    const binding = env.PDF_CACHE
+    if (binding && typeof binding === 'object' && 'get' in binding && 'put' in binding) {
+      console.log('Found R2 binding: PDF_CACHE')
+      return binding as R2Binding
+    }
+  }
+
+  console.warn(
+    `R2 binding '${bindingName}' not found in environment. ` +
+    `Available keys (filtered): ${envKeys.join(', ')}. ` +
+    `Make sure the R2 bucket exists and is configured in wrangler.toml`
+  )
   return null
 }
 

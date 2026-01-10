@@ -9,6 +9,7 @@ import { PptxProcessingService } from '~/server/services/pptx-processing'
 import { PptxToPdfDirectService } from '~/server/services/pptx-to-pdf-direct'
 import { sendFileResponse } from '~/server/utils/response'
 import { getSecret } from '~/server/utils/cloudflare'
+import { getCachedPdf, cachePdf } from '~/server/services/r2-cache'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -22,6 +23,17 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'Company name is required',
       })
     }
+
+    // Check R2 cache first
+    console.log(`Checking cache for company: ${companyName}`)
+    const cachedPdf = await getCachedPdf(event, companyName)
+
+    if (cachedPdf && cachedPdf.byteLength > 0) {
+      console.log(`Serving cached PDF for company: ${companyName} (${cachedPdf.byteLength} bytes)`)
+      return sendFileResponse(event, cachedPdf, companyName, 'pdf')
+    }
+
+    console.log(`Cache miss for company: ${companyName}. Generating new PDF...`)
 
     // Get API key from Cloudflare Workers secrets/environment
     // ConvertHub: Get free API key (50 free calls) from https://converthub.com
@@ -110,6 +122,10 @@ export default defineEventHandler(async (event) => {
       }
       
       console.log(`PDF conversion successful. Buffer size: ${pdfArrayBuffer.byteLength} bytes`)
+      
+      // Cache the generated PDF in R2 storage for future requests
+      await cachePdf(event, companyName, pdfArrayBuffer)
+      
       return sendFileResponse(event, pdfArrayBuffer, companyName, 'pdf')
     } catch (conversionError: unknown) {
       console.error('PDF conversion error:', conversionError)
