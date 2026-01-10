@@ -48,6 +48,11 @@ export default defineEventHandler(async (event) => {
     // The binding name 'MYBROWSER' should match what's in wrangler.toml
     // Works in both Cloudflare Workers (production) and wrangler dev (local development)
     const browserBinding = getBrowserBinding(event, 'MYBROWSER')
+    
+    console.log('Browser binding check:', {
+      hasBinding: !!browserBinding,
+      bindingType: browserBinding ? typeof browserBinding : 'null',
+    })
 
     // Create Puppeteer PDF service
     // Requires browser binding (available in Workers or when using wrangler dev)
@@ -57,16 +62,32 @@ export default defineEventHandler(async (event) => {
     if (!pdfService) {
       console.warn('Browser binding (MYBROWSER) not available, returning HTML')
       console.warn('For local development, use: wrangler dev (instead of yarn dev)')
-      console.warn('This provides the browser binding needed for PDF conversion')
+      console.warn('For production: Ensure browser binding is configured in Cloudflare Dashboard:')
+      console.warn('  1. Go to Workers & Pages > Your Worker > Settings > Bindings')
+      console.warn('  2. Add a Browser binding named "MYBROWSER"')
+      console.warn('  3. Ensure Browser Rendering API is enabled on your account')
       return sendFileResponse(event, processedHtml, companyName, 'html')
     }
 
     // Convert to PDF using Puppeteer
     try {
+      console.log('Starting PDF conversion...')
       const pdfArrayBuffer = await pdfService.convertHtmlToPdf(processedHtml)
+      
+      // Validate PDF buffer
+      if (!pdfArrayBuffer || pdfArrayBuffer.byteLength === 0) {
+        console.error('PDF conversion returned empty buffer')
+        throw new Error('PDF conversion returned empty buffer')
+      }
+      
+      console.log(`PDF conversion successful. Buffer size: ${pdfArrayBuffer.byteLength} bytes`)
       return sendFileResponse(event, pdfArrayBuffer, companyName, 'pdf')
     } catch (conversionError: unknown) {
       console.error('PDF conversion error:', conversionError)
+      const errorMessage = conversionError instanceof Error 
+        ? conversionError.message 
+        : 'Unknown conversion error'
+      console.error('Error details:', errorMessage)
 
       // Fallback: return HTML if PDF conversion fails
       console.warn('Falling back to HTML format due to conversion error')
