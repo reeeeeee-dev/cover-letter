@@ -1,0 +1,20 @@
+name = "cover-letter"
+main = ".output/server/index.mjs"
+compatibility_date = "2025-07-15"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Build command to run before dev/deploy
+# This automatically builds the Nuxt app when running wrangler dev
+[build]
+command = "yarn build"
+
+# Assets directory for static files
+# Nuxt outputs static assets to .output/public
+[assets]
+directory = ".output/public"
+
+# Browser Rendering API binding for Puppeteer
+# This enables PDF generation using @cloudflare/puppeteer
+[browser]
+binding = "MYBROWSER"
