@@ -54,7 +54,8 @@ export default defineNuxtConfig({
   // Runtime config for environment variables
   runtimeConfig: {
     // Cloudflare bindings are accessed via event.context.cloudflare.env
-    // No need to configure here as they come from wrangler.toml
+    // Environment variables can be set in wrangler.toml or via secrets
+    conversionApiKey: process.env.CONVERSION_API_KEY || '', // ConvertHub API key
     public: {
       // Add any public config here if needed
     }

@@ -15,16 +15,8 @@ export interface AssetsBinding {
  */
 export interface CloudflareEnv {
   [key: string]: unknown
-  BROWSER?: BrowserBinding
-  MYBROWSER?: BrowserBinding
   ASSETS?: AssetsBinding
 }
-
-/**
- * Browser Binding type
- * Represents the browser binding from Cloudflare Browser Rendering API
- */
-export type BrowserBinding = unknown
 
 /**
  * Cloudflare context interface

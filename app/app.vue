@@ -14,13 +14,13 @@
             type="text"
             placeholder="Enter company name"
             class="input"
-            @keyup.enter="generatePDF"
+            @keyup.enter="generateCoverLetter"
             :disabled="isGenerating"
           />
         </div>
         
         <button
-          @click="generatePDF"
+          @click="generateCoverLetter"
           :disabled="!companyName || isGenerating"
           class="button"
         >
@@ -41,7 +41,7 @@ const companyName = ref('')
 const isGenerating = ref(false)
 const error = ref('')
 
-const generatePDF = async () => {
+const generateCoverLetter = async () => {
   if (!companyName.value.trim()) {
     error.value = 'Please enter a company name'
     return
@@ -64,8 +64,9 @@ const generatePDF = async () => {
     
     // Determine file type from blob or default to PDF
     // The server sets Content-Type header, but we'll check blob type
+    const isPdf = blob.type?.includes('pdf') || blob.type?.includes('application/pdf')
     const isHtml = blob.type?.includes('html') || blob.type?.includes('text/html')
-    const fileExtension = isHtml ? 'html' : 'pdf'
+    const fileExtension = isPdf ? 'pdf' : isHtml ? 'html' : 'pdf' // Default to pdf
     const fileName = `cover-letter-${companyName.value.replace(/[^a-z0-9]/gi, '-')}.${fileExtension}`
     
     const url = window.URL.createObjectURL(blob)
@@ -83,16 +84,11 @@ const generatePDF = async () => {
     
     // Clear any previous errors
     error.value = ''
-    
-    // Show success message if HTML (meaning API key not configured)
-    if (isHtml) {
-      console.info('HTML file downloaded. PDF conversion requires API key configuration.')
-    }
   } catch (err: unknown) {
-    console.error('Error generating PDF:', err)
+    console.error('Error generating cover letter:', err)
     
     // Extract error message from various error types
-    let errorMessage = 'Failed to generate PDF. Please try again.'
+    let errorMessage = 'Failed to generate cover letter. Please try again.'
     
     if (err && typeof err === 'object') {
       if ('data' in err && err.data && typeof err.data === 'object' && 'message' in err.data) {

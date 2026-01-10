@@ -411,6 +411,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@converthub/sdk@npm:^1.2.0":
+  version: 1.2.0
+  resolution: "@converthub/sdk@npm:1.2.0"
+  dependencies:
+    undici: "npm:^6.0.0"
+  checksum: 10c0/8d51313775150cb9f06bcb54170c463308ecdab703ff473025a7a816afa93493e3decf803b19c3ea37b518c075b26d61dd2378947ea9a458dee91ddfb4c94dd9
+  languageName: node
+  linkType: hard
+
 "@cspotcode/source-map-support@npm:0.8.1":
   version: 0.8.1
   resolution: "@cspotcode/source-map-support@npm:0.8.1"
@@ -2744,6 +2753,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@xmldom/xmldom@npm:^0.9.8":
+  version: 0.9.8
+  resolution: "@xmldom/xmldom@npm:0.9.8"
+  checksum: 10c0/2ea984270832de2843ab0bbb6df71bde9aa02126b69e5fd56b5512b98ace48e94aff7186e77d0b22fe4b6780483862be752bcf8577436638a9210109029a0503
+  languageName: node
+  linkType: hard
+
 "abbrev@npm:^3.0.0":
   version: 3.0.1
   resolution: "abbrev@npm:3.0.1"
@@ -3484,8 +3500,11 @@ __metadata:
   resolution: "cover-letter@workspace:."
   dependencies:
     "@cloudflare/puppeteer": "npm:^1.0.4"
+    "@converthub/sdk": "npm:^1.2.0"
     "@types/node": "npm:^25.0.3"
+    docxtemplater: "npm:^3.67.6"
     nuxt: "npm:^4.2.2"
+    pizzip: "npm:^3.2.0"
     vue: "npm:^3.5.26"
     vue-router: "npm:^4.6.4"
     wrangler: "npm:^3.87.0"
@@ -3837,6 +3856,15 @@ __metadata:
   version: 8.0.2
   resolution: "diff@npm:8.0.2"
   checksum: 10c0/abfb387f033e089df3ec3be960205d17b54df8abf0924d982a7ced3a94c557a4e6cbff2e78b121f216b85f466b3d8d041673a386177c311aaea41459286cc9bc
+  languageName: node
+  linkType: hard
+
+"docxtemplater@npm:^3.67.6":
+  version: 3.67.6
+  resolution: "docxtemplater@npm:3.67.6"
+  dependencies:
+    "@xmldom/xmldom": "npm:^0.9.8"
+  checksum: 10c0/5a426d7ce522f145a29a42961322f6a6c53e2a5de01ca125ede736651b11d53ceb30f3587c47200886a1a32dda4e053d50336ede290f25b7f4c487d5a908d9ed
   languageName: node
   linkType: hard
 
@@ -6268,6 +6296,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"pako@npm:^2.1.0":
+  version: 2.1.0
+  resolution: "pako@npm:2.1.0"
+  checksum: 10c0/8e8646581410654b50eb22a5dfd71159cae98145bd5086c9a7a816ec0370b5f72b4648d08674624b3870a521e6a3daffd6c2f7bc00fdefc7063c9d8232ff5116
+  languageName: node
+  linkType: hard
+
 "parse-path@npm:^7.0.0":
   version: 7.1.0
   resolution: "parse-path@npm:7.1.0"
@@ -6395,6 +6430,15 @@ __metadata:
   version: 4.0.3
   resolution: "picomatch@npm:4.0.3"
   checksum: 10c0/9582c951e95eebee5434f59e426cddd228a7b97a0161a375aed4be244bd3fe8e3a31b846808ea14ef2c8a2527a6eeab7b3946a67d5979e81694654f939473ae2
+  languageName: node
+  linkType: hard
+
+"pizzip@npm:^3.2.0":
+  version: 3.2.0
+  resolution: "pizzip@npm:3.2.0"
+  dependencies:
+    pako: "npm:^2.1.0"
+  checksum: 10c0/8581befc8317fdf554aa02efc5cb1fbaafecd69e8a0c5fcc0f16a5a84e92312802844925607cebb10564ac951ba58c77f9304ed43dcc145d514a9796318b90df
   languageName: node
   linkType: hard
 
@@ -7956,6 +8000,13 @@ __metadata:
   dependencies:
     "@fastify/busboy": "npm:^2.0.0"
   checksum: 10c0/e4e4d631ca54ee0ad82d2e90e7798fa00a106e27e6c880687e445cc2f13b4bc87c5eba2a88c266c3eecffb18f26e227b778412da74a23acc374fca7caccec49b
+  languageName: node
+  linkType: hard
+
+"undici@npm:^6.0.0":
+  version: 6.23.0
+  resolution: "undici@npm:6.23.0"
+  checksum: 10c0/d846b3fdfd05aa6081ba1eab5db6bbc21b283042c7a43722b86d1ee2bf749d7c990ceac0c809f9a07ffd88b1b0f4c0f548a8362c035088cb1997d63abdda499c
   languageName: node
   linkType: hard
 

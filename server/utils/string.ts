@@ -18,9 +18,29 @@ export function replacePlaceholders(
   placeholders: Record<string, string>
 ): string {
   let result = template
+  console.log('replacePlaceholders called with:', {
+    templateLength: template.length,
+    placeholderKeys: Object.keys(placeholders),
+    placeholderValues: Object.values(placeholders)
+  })
+  
   for (const [key, value] of Object.entries(placeholders)) {
+    const pattern = `{{${key}}}`
     const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
+    const matches = result.match(regex)
+    console.log(`Replacing ${pattern}:`, {
+      foundMatches: matches?.length || 0,
+      replacementValue: value,
+      regexPattern: regex.toString()
+    })
     result = result.replace(regex, value)
+    
+    // Verify replacement worked
+    if (result.includes(pattern)) {
+      console.warn(`Warning: Placeholder ${pattern} still exists after replacement!`)
+    }
   }
+  
+  console.log('replacePlaceholders result length:', result.length)
   return result
 }

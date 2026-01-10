@@ -1,13 +1,14 @@
 /**
  * Generate PDF API endpoint
- * Handles cover letter generation and PDF conversion using Puppeteer
+ * Handles cover letter generation from PPTX template with placeholder replacement
+ * Converts PPTX directly to PDF using external API (ConvertHub - 50 free calls)
  */
 
 import type { GeneratePdfRequest } from '~/server/types'
-import { TemplateService } from '~/server/services/template'
-import { createPuppeteerPdfService } from '~/server/services/pdf-conversion-puppeteer'
-import { getBrowserBinding } from '~/server/utils/cloudflare'
+import { PptxProcessingService } from '~/server/services/pptx-processing'
+import { PptxToPdfDirectService } from '~/server/services/pptx-to-pdf-direct'
 import { sendFileResponse } from '~/server/utils/response'
+import { getSecret } from '~/server/utils/cloudflare'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -22,57 +23,85 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Initialize services
-    const templateService = new TemplateService()
+    // Get API key from Cloudflare Workers secrets/environment
+    // ConvertHub: Get free API key (50 free calls) from https://converthub.com
+    // Set via: wrangler secret put CONVERSION_API_KEY
+    // Secrets set via "wrangler secret put" are securely stored and accessible via event.context.cloudflare.env
+    let conversionApiKey = getSecret(event, 'CONVERSION_API_KEY')
+    
+    if (conversionApiKey) {
+      console.log('Found CONVERSION_API_KEY in Cloudflare environment')
+    } else {
+      // Fallback for local development
+      try {
+        const runtimeConfig = useRuntimeConfig(event)
+        if (runtimeConfig.conversionApiKey) {
+          conversionApiKey = runtimeConfig.conversionApiKey
+          console.log('Using CONVERSION_API_KEY from runtime config (local dev)')
+        }
+      } catch {
+        // Runtime config might not be available
+      }
+      
+      if (!conversionApiKey && process.env.CONVERSION_API_KEY) {
+        conversionApiKey = process.env.CONVERSION_API_KEY
+        console.log('Using CONVERSION_API_KEY from process.env (local dev)')
+      }
+    }
 
-    // Load and process template
-    // Uses ASSETS binding in Cloudflare Workers, falls back to HTTP fetch
-    let htmlContent: string
-    try {
-      htmlContent = await templateService.loadTemplate(event, 'base.html')
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    if (!conversionApiKey) {
       throw createError({
         statusCode: 500,
         statusMessage:
-          `Failed to load template file. Make sure base.html is in the public directory. ${errorMessage}`,
+          'Conversion API key not configured. Please set the CONVERSION_API_KEY secret in Cloudflare. ' +
+          'Run: wrangler secret put CONVERSION_API_KEY\n' +
+          'Get a free API key (50 free calls) from https://converthub.com',
       })
     }
 
-    // Replace placeholders
-    const processedHtml = templateService.replacePlaceholders(htmlContent, {
-      COMPANY: companyName,
-    })
+    // Initialize PPTX processing service
+    const pptxService = new PptxProcessingService()
 
-    // Get browser binding from Cloudflare environment
-    // The binding name 'MYBROWSER' should match what's in wrangler.toml
-    // Works in both Cloudflare Workers (production) and wrangler dev (local development)
-    const browserBinding = getBrowserBinding(event, 'MYBROWSER')
-    
-    console.log('Browser binding check:', {
-      hasBinding: !!browserBinding,
-      bindingType: browserBinding ? typeof browserBinding : 'null',
-    })
-
-    // Create Puppeteer PDF service
-    // Requires browser binding (available in Workers or when using wrangler dev)
-    const pdfService = createPuppeteerPdfService(browserBinding)
-
-    // If no browser binding, return HTML as fallback
-    if (!pdfService) {
-      console.warn('Browser binding (MYBROWSER) not available, returning HTML')
-      console.warn('For local development, use: wrangler dev (instead of yarn dev)')
-      console.warn('For production: Ensure browser binding is configured in Cloudflare Dashboard:')
-      console.warn('  1. Go to Workers & Pages > Your Worker > Settings > Bindings')
-      console.warn('  2. Add a Browser binding named "MYBROWSER"')
-      console.warn('  3. Ensure Browser Rendering API is enabled on your account')
-      return sendFileResponse(event, processedHtml, companyName, 'html')
+    // Load and process PPTX template (replace placeholders)
+    let processedPptxBuffer: ArrayBuffer
+    try {
+      console.log('Loading PPTX template and replacing placeholders...')
+      processedPptxBuffer = await pptxService.processTemplate(
+        event,
+        'base.pptx',
+        {
+          COMPANY: companyName,
+        }
+      )
+      console.log(`PPTX template processed. Buffer size: ${processedPptxBuffer.byteLength} bytes`)
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error('Error processing PPTX template:', errorMessage)
+      throw createError({
+        statusCode: 500,
+        statusMessage:
+          `Failed to load or process template file. Make sure base.pptx is in the public directory. ${errorMessage}`,
+      })
     }
 
-    // Convert to PDF using Puppeteer
+    // Validate processed PPTX buffer
+    if (!processedPptxBuffer || processedPptxBuffer.byteLength === 0) {
+      console.error('PPTX processing returned empty buffer')
+      throw createError({
+        statusCode: 500,
+        statusMessage: 'Failed to process PPTX template',
+      })
+    }
+
+    // Initialize direct PPTX to PDF conversion service using ConvertHub (manual API calls)
+    const conversionService = new PptxToPdfDirectService({
+      apiKey: conversionApiKey,
+    })
+
+    // Convert processed PPTX directly to PDF using external API
     try {
-      console.log('Starting PDF conversion...')
-      const pdfArrayBuffer = await pdfService.convertHtmlToPdf(processedHtml)
+      console.log('Starting direct PPTX to PDF conversion via ConvertHub...')
+      const pdfArrayBuffer = await conversionService.convertPptxToPdf(processedPptxBuffer)
       
       // Validate PDF buffer
       if (!pdfArrayBuffer || pdfArrayBuffer.byteLength === 0) {
@@ -89,9 +118,13 @@ export default defineEventHandler(async (event) => {
         : 'Unknown conversion error'
       console.error('Error details:', errorMessage)
 
-      // Fallback: return HTML if PDF conversion fails
-      console.warn('Falling back to HTML format due to conversion error')
-      return sendFileResponse(event, processedHtml, companyName, 'html')
+      // If conversion fails, provide helpful error message
+      throw createError({
+        statusCode: 500,
+        statusMessage: `PDF conversion failed: ${errorMessage}. ` +
+          'Please check your ConvertHub API key and ensure you have available API calls. ' +
+          'Get a free API key (50 free calls) from https://converthub.com',
+      })
     }
   } catch (error: unknown) {
     // Re-throw H3 errors (they already have statusCode)

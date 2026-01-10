@@ -4,12 +4,12 @@
  */
 
 import type { H3Event } from 'h3'
-import type { BrowserBinding, CloudflareEnv, AssetsBinding } from '~/server/types/cloudflare'
+import type { CloudflareEnv, AssetsBinding } from '~/server/types/cloudflare'
 
 /**
  * Get the Cloudflare environment from an event
  */
-function getCloudflareEnv(
+export function getCloudflareEnv(
   event: H3Event | { context?: { cloudflare?: { env?: CloudflareEnv } }; cloudflare?: { env?: CloudflareEnv } }
 ): CloudflareEnv | null {
   // Method 1: Via event.context.cloudflare.env (standard way in Nuxt/Nitro with cloudflare_module preset)
@@ -46,57 +46,6 @@ function getCloudflareEnv(
 }
 
 /**
- * Get the browser binding from the Cloudflare Workers environment
- * In Nuxt/Nitro, bindings are accessed via event.context.cloudflare.env
- * The binding name should match what's configured in wrangler.toml (e.g., MYBROWSER)
- */
-export function getBrowserBinding(
-  event: H3Event | { context?: { cloudflare?: { env?: CloudflareEnv } }; cloudflare?: { env?: CloudflareEnv } },
-  bindingName: string = 'MYBROWSER'
-): BrowserBinding | null {
-  const env = getCloudflareEnv(event)
-  
-  if (!env) {
-    console.warn('Cloudflare environment not found. Available keys:', 
-      event && typeof event === 'object' ? Object.keys(event) : 'unknown')
-    return null
-  }
-  
-  console.log('Cloudflare env keys:', Object.keys(env))
-  
-  // Try the specified binding name first
-  if (env[bindingName]) {
-    console.log(`Found browser binding: ${bindingName}`)
-    return env[bindingName] as BrowserBinding
-  }
-  
-  // Try common browser binding names
-  if (env.BROWSER) {
-    console.log('Found browser binding: BROWSER')
-    return env.BROWSER as BrowserBinding
-  }
-  
-  if (env.MYBROWSER) {
-    console.log('Found browser binding: MYBROWSER')
-    return env.MYBROWSER as BrowserBinding
-  }
-
-  // Fallback via runtime config (for development)
-  try {
-    const config = useRuntimeConfig()
-    if (config.cloudflare?.browser) {
-      console.log('Found browser binding via runtime config')
-      return config.cloudflare.browser as BrowserBinding
-    }
-  } catch {
-    // Runtime config may not be available in all contexts
-  }
-
-  console.warn(`Browser binding '${bindingName}' not found in environment`)
-  return null
-}
-
-/**
  * Get the assets binding from the Cloudflare Workers environment
  * Assets are served via the ASSETS binding configured in wrangler.toml
  */
@@ -119,5 +68,25 @@ export function getAssetsBinding(
     return env.ASSETS
   }
 
+  return null
+}
+
+/**
+ * Get a secret or environment variable from Cloudflare Workers environment
+ * Secrets set via "wrangler secret put" are available in event.context.cloudflare.env
+ */
+export function getSecret(
+  event: H3Event | { context?: { cloudflare?: { env?: CloudflareEnv } }; cloudflare?: { env?: CloudflareEnv } },
+  secretName: string
+): string | null {
+  const env = getCloudflareEnv(event)
+  
+  if (env && typeof env === 'object' && secretName in env) {
+    const value = env[secretName]
+    if (value && typeof value === 'string') {
+      return value
+    }
+  }
+  
   return null
 }

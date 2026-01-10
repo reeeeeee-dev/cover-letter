@@ -14,11 +14,6 @@ command = "yarn build"
 [assets]
 directory = ".output/public"
 
-# Browser Rendering API binding for Puppeteer
-# This enables PDF generation using @cloudflare/puppeteer
-[browser]
-binding = "MYBROWSER"
-
 [observability]
 enabled = false
 head_sampling_rate = 1
