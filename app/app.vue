@@ -15,18 +15,30 @@
             placeholder="Enter company name"
             class="input"
             @keyup.enter="generateCoverLetter"
-            :disabled="isGenerating"
+            :disabled="isBusy"
           />
         </div>
         
-        <button
-          @click="generateCoverLetter"
-          :disabled="!companyName || isGenerating"
-          class="button"
-        >
-          <span v-if="!isGenerating">Generate & Download PDF</span>
-          <span v-else>Generating...</span>
-        </button>
+        <div class="button-group">
+          <button
+            @click="generateCoverLetter"
+            :disabled="!companyName || isBusy"
+            class="button"
+          >
+            <span v-if="!isGenerating">Generate &amp; Download PDF</span>
+            <span v-else>Generating...</span>
+          </button>
+
+          <button
+            @click="copyCoverLetterText"
+            :disabled="!companyName || isBusy"
+            class="button button-secondary"
+          >
+            <span v-if="!isCopying && !copied">Copy Text</span>
+            <span v-else-if="isCopying">Copying...</span>
+            <span v-else>Copied!</span>
+          </button>
+        </div>
         
         <div v-if="error" class="error-message">
           {{ error }}
@@ -39,7 +51,11 @@
 <script setup lang="ts">
 const companyName = ref('')
 const isGenerating = ref(false)
+const isCopying = ref(false)
+const copied = ref(false)
 const error = ref('')
+
+const isBusy = computed(() => isGenerating.value || isCopying.value)
 
 const generateCoverLetter = async () => {
   if (!companyName.value.trim()) {
@@ -86,22 +102,81 @@ const generateCoverLetter = async () => {
     error.value = ''
   } catch (err: unknown) {
     console.error('Error generating cover letter:', err)
-    
-    // Extract error message from various error types
-    let errorMessage = 'Failed to generate cover letter. Please try again.'
-    
-    if (err && typeof err === 'object') {
-      if ('data' in err && err.data && typeof err.data === 'object' && 'message' in err.data) {
-        errorMessage = String(err.data.message)
-      } else if ('message' in err) {
-        errorMessage = String(err.message)
-      }
-    }
-    
-    error.value = errorMessage
+    error.value = extractErrorMessage(err, 'Failed to generate cover letter. Please try again.')
   } finally {
     isGenerating.value = false
   }
+}
+
+const copyCoverLetterText = async () => {
+  if (!companyName.value.trim()) {
+    error.value = 'Please enter a company name'
+    return
+  }
+
+  isCopying.value = true
+  copied.value = false
+  error.value = ''
+
+  try {
+    const response = await $fetch<{ text: string }>('/api/generate-text', {
+      method: 'POST',
+      body: {
+        company: companyName.value.trim()
+      }
+    })
+
+    const text = response?.text ?? ''
+    if (!text) {
+      throw new Error('No text returned from server')
+    }
+
+    await copyToClipboard(text)
+
+    copied.value = true
+    setTimeout(() => {
+      copied.value = false
+    }, 2000)
+  } catch (err: unknown) {
+    console.error('Error copying cover letter text:', err)
+    error.value = extractErrorMessage(err, 'Failed to copy cover letter text. Please try again.')
+  } finally {
+    isCopying.value = false
+  }
+}
+
+const copyToClipboard = async (text: string) => {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text)
+    return
+  }
+
+  // Fallback for browsers without Clipboard API (e.g., non-HTTPS contexts)
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'absolute'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+  const ok = document.execCommand('copy')
+  document.body.removeChild(textarea)
+  if (!ok) throw new Error('Clipboard copy not supported in this browser')
+}
+
+const extractErrorMessage = (err: unknown, fallback: string): string => {
+  if (err && typeof err === 'object') {
+    if ('data' in err && err.data && typeof err.data === 'object' && 'message' in err.data) {
+      return String((err.data as { message: unknown }).message)
+    }
+    if ('statusMessage' in err && (err as { statusMessage?: unknown }).statusMessage) {
+      return String((err as { statusMessage: unknown }).statusMessage)
+    }
+    if ('message' in err) {
+      return String((err as { message: unknown }).message)
+    }
+  }
+  return fallback
 }
 </script>
 
@@ -184,7 +259,14 @@ label {
   cursor: not-allowed;
 }
 
+.button-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .button {
+  flex: 1 1 200px;
   padding: 14px 24px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -193,7 +275,7 @@ label {
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s, color 0.2s;
 }
 
 .button:hover:not(:disabled) {
@@ -208,6 +290,17 @@ label {
 .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.button-secondary {
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+}
+
+.button-secondary:hover:not(:disabled) {
+  background: #f5f3ff;
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.2);
 }
 
 .error-message {
